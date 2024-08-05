@@ -1,59 +1,104 @@
+#define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define HAVE_STRUCT_TIMESPEC
 #include <stdio.h>
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32")
+#include <wchar.h>
+#include <conio.h>
+#include <windows.h>
+#include <locale.h> // ë¡œì¼€ì¼ì„ ì„¤ì •í•˜ê¸° ìœ„í•´ í•„ìš”
+#include <pthread.h>
+
+void send_c(SOCKET sock) {
+    while (1) {
+        char i[1024];
+
+        scanf("%s", &i);
+        send(sock, i, 1023, 0);
+    }
+}
+
+void receive_c(SOCKET sock) {
+    while (1) {
+        char buff[1024];
+
+        recv(sock, buff, 1023, 0);
+        printf("%s\n", buff);
+    }
+}
 
 int main(void) {
     WSADATA wsadata;
 
-    // ÃÊ±âÈ­ ¼º°ø 0, ½ÇÆĞ -1
+    // ì´ˆê¸°í™” ì„±ê³µ 0, ì‹¤íŒ¨ -1
     if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0) {
-        printf("winsock ÃÊ±âÈ­ ½ÇÆĞ\n");
+        printf("winsock ì´ˆê¸°í™” ì‹¤íŒ¨\n");
         return -1;
     }
+   
+    printf("winsock ì´ˆê¸°í™” ì„±ê³µ!!\n");
 
-    printf("winsock ÃÊ±âÈ­ ¼º°ø!!\n");
-
-    // 3. ¼ÒÄÏ »ı¼º°ú ´İ±â.
-    // socket(af, type, protocol) - ¼ÒÄÏÀ» »ı¼ºÇØÁÖ´Â ÇÔ¼ö.
-    // af : ÁÖ¼ÒÃ¼°è (ipv4 - AF_INET, ipv6 - AF_INET6)
-    // type : ¼ÒÄÏÀÇ µ¥ÀÌÅÍ Àü¼Û Å¸ÀÔ (TCP / UDP) - SOCK_STREAM, SOCK_DGRAM 
-    // protocol : ÇÁ·ÎÅäÄİ ¼±ÅÃ(º¸Åë 0À¸·Î ÇØÁÜ)  
-    // closesocket(sock): ÇØ´ç ¼ÒÄÏÀÇ ÀÚ¿ø ¹İ³³
+    // 3. ì†Œì¼“ ìƒì„±ê³¼ ë‹«ê¸°.
+    // socket(af, type, protocol) - ì†Œì¼“ì„ ìƒì„±í•´ì£¼ëŠ” í•¨ìˆ˜.
+    // af : ì£¼ì†Œì²´ê³„ (ipv4 - AF_INET, ipv6 - AF_INET6)
+    // type : ì†Œì¼“ì˜ ë°ì´í„° ì „ì†¡ íƒ€ì… (TCP / UDP) - SOCK_STREAM, SOCK_DGRAM
+    // protocol : í”„ë¡œí† ì½œ ì„ íƒ(ë³´í†µ 0ìœ¼ë¡œ í•´ì¤Œ)  
+    // closesocket(sock): í•´ë‹¹ ì†Œì¼“ì˜ ìì› ë°˜ë‚©
 
     SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == SOCKET_ERROR) {
-        printf("¼ÒÄÏ »ı¼º½Ã ¹®Á¦ ¹ß»ı!!\n");
+        printf("ì†Œì¼“ ìƒì„±ì‹œ ë¬¸ì œ ë°œìƒ!!\n");
         return -1;
     }
 
-    printf("¼ÒÄÏ »ı¼º ¿Ï·á!!\n");
+    printf("ì†Œì¼“ ìƒì„± ì™„ë£Œ!!\n");
 
 
-    // 4. Á¢¼ÓÇÏ°íÀÚ ÇÏ´Â ¼­¹ö¿¡ ´ëÇÑ ÁÖ¼Ò ¼¼ÆÃ
-    SOCKADDR_IN addr; // Á¢¼Ó ÇÏ°íÀÚÇÏ´Â ´ë»ó ¼­¹ö ÁÖ¼Ò
+    // 4. ì ‘ì†í•˜ê³ ì í•˜ëŠ” ì„œë²„ì— ëŒ€í•œ ì£¼ì†Œ ì„¸íŒ…
+    SOCKADDR_IN addr; // ì ‘ì† í•˜ê³ ìí•˜ëŠ” ëŒ€ìƒ ì„œë²„ ì£¼ì†Œ
     addr.sin_family = AF_INET;
     addr.sin_port = htons(9999);
     addr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1"); // 127.0.0.1
 
-    // 5. ¼­¹ö¿¡ ¿¬°á ¿äÃ» - connect()
+    // 5. ì„œë²„ì— ì—°ê²° ìš”ì²­ - connect()
     // connect(sock, addr, addrlen)
-    // sock - Å¬¶óÀÌ¾ğÆ® ¼ÒÄÏ
-    // addr - Á¢¼ÓÇÒ ¼­¹öÀÇ ÁÖ¼Ò°ª ±¸Á¶Ã¼ÀÇ Æ÷ÀÎÅÍ
-    // addrlen - addrÀÇ Å©±â
+    // sock - í´ë¼ì´ì–¸íŠ¸ ì†Œì¼“
+    // addr - ì ‘ì†í•  ì„œë²„ì˜ ì£¼ì†Œê°’ êµ¬ì¡°ì²´ì˜ í¬ì¸í„°
+    // addrlen - addrì˜ í¬ê¸°
 
     if (connect(sock, (SOCKADDR_IN*)&addr, sizeof(addr)) != 0) {
-        printf("¼­¹ö¿¡ ¿¬°á ½ÃµµÁß ¹®Á¦ ¹ß»ı!!\n");
+        printf("ì„œë²„ì— ì—°ê²° ì‹œë„ì¤‘ ë¬¸ì œ ë°œìƒ!!\n");
         exit(1);
     }
 
     printf("%d\n", sock);
-    printf("¼­¹ö¿¡ ¿¬°á µÇ¾ú½À´Ï´Ù!\n");
-    // 8. µ¥ÀÌÅÍ ¼Û¼ö½Å - send() / recv()
-    char buff[1024];
-    recv(sock, buff, 1023, 0);
-    printf("%s\n", buff);
-    send(sock, "hihi", len, flags);
+    printf("ì„œë²„ì— ì—°ê²° ë˜ì—ˆìŠµë‹ˆë‹¤!\n");
+
+    // 8. ë°ì´í„° ì†¡ìˆ˜ì‹  - send() / recv()
+    /*while (1) {
+        char buff[1024];
+        char i[1024];
+   
+        recv(sock, buff, 1023, 0);
+        printf("%s\n", buff);
+
+        scanf("%s", &i);
+        send(sock, i, 1023, 1);
+    }*/
+    pthread_t pthread[2];
+    int thr1;
+    int thr2;
+    int status;
+   
+    Sleep(1000); //1
+
+    thr1 = pthread_create(&pthread[0], NULL, send_c, sock);
+
+    thr2 = pthread_create(&pthread[1], NULL, receive_c, sock);
+
+    pthread_join(pthread[0], (void**)&status);
+    pthread_join(pthread[1], (void**)&status);
 
     return 0;
 }
