@@ -1,75 +1,43 @@
+#define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define HAVE_STRUCT_TIMESPEC
 #include <stdio.h>
 #include <winsock2.h>
+#pragma comment(lib, "ws2_32")
+#include <wchar.h>
+#include <conio.h>
+#include <windows.h>
+#include <locale.h> // ë¡œì¼€ì¼ì„ ì„¤ì •í•˜ê¸° ìœ„í•´ í•„ìš”
+#include <pthread.h>
 
-int main(void) {
+SOCKET socket_list[10];
+int socket_count = 0;
 
-    WSADATA wsadata;
+void send_s(SOCKET csock) {
+    while (1) {
+        char i[1024];
 
-    // ÃÊ±âÈ­ ¼º°ø 0, ½ÇÆĞ -1
-    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0) {
-        printf("winsock ÃÊ±âÈ­ ½ÇÆĞ\n");
-        return -1;
+        scanf("%s", &i);
+
+        send(csock, i, 1023, 0);
     }
+}
 
-    printf("winsock ÃÊ±âÈ­ ¼º°ø!!\n");
+void receive_s(SOCKET csock) {
+    while (1) {
+        char buff[1024];
 
-    // 3. ¼ÒÄÏ »ı¼º°ú ´İ±â.
-    // socket(af, type, protocol) - ¼ÒÄÏÀ» »ı¼ºÇØÁÖ´Â ÇÔ¼ö.
-    // af : ÁÖ¼ÒÃ¼°è (ipv4 - AF_INET, ipv6 - AF_INET6)
-    // type : ¼ÒÄÏÀÇ µ¥ÀÌÅÍ Àü¼Û Å¸ÀÔ (TCP / UDP) - SOCK_STREAM, SOCK_DGRAM 
-    // protocol : ÇÁ·ÎÅäÄİ ¼±ÅÃ(º¸Åë 0À¸·Î ÇØÁÜ)  
-    // closesocket(sock): ÇØ´ç ¼ÒÄÏÀÇ ÀÚ¿ø ¹İ³³
-
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == SOCKET_ERROR) {
-        printf("¼ÒÄÏ »ı¼º½Ã ¹®Á¦ ¹ß»ı!!\n");
-        return -1;
+        recv(csock, buff, 1023, 0);
+       
+        printf("%s\n", buff);
+        for (int i = 0; i < socket_count; i++) {
+            send(socket_list[i], buff, 1023, 0);
+        }
     }
-
-    printf("¼ÒÄÏ »ı¼º ¿Ï·á!!\n");
-
-
-    // 4. ÁÖ¼Ò¿Í Æ÷Æ®¹øÈ£ ¼³Á¤
-    // sin_family : ÁÖ¼ÒÃ¼°è
-    // sin_port : Æ÷Æ®¹øÈ£
-    // sin_addr : IP ÁÖ¼Ò (ADDR_ANY ·ÎÄÃÀÇ ÁÖ¼Ò¸¦ ÀÚµ¿ ¼¼ÆÃ)
-    // htons : ¸®Æ²ÀÎµğ¾È > ºòÀÎµğ¾È 
+}
 
 
-    SOCKADDR_IN addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(9999); // 9000¹ø´ë ÀÌÈÄ·Î´Â ´Ù ºñ¾îÀÖÀ½. 9000 ~ 63000
-    addr.sin_addr.S_un.S_addr = ADDR_ANY;
-
-    // 5. ¹ÙÀÎµù
-    // bind(sock, addr, addrlen)
-    // sock : ¹ÙÀÎµùÇÒ ´ë»ó ¼ÒÄÏ
-    // addr : ´ë»ó ¼ÒÄÏ¿¡ ¼³Á¤ÇÑ ÁÖ¼Ò ±¸Á¶Ã¼(sockaddr) ÁÖ¼Ò
-    // addrlen : ÁÖ¼Ò ±¸Á¶Ã¼ÀÇ Å©±â
-    // sockaddr* : sockaddr_in ip v4 Æ¯È­µÈ ±¸Á¶Ã¼ÀÎµ¥, ÀÌ°É Á»´õ ¹ü¿ë¼ºÀÖ°Ô ¹Ù²Û°ÍÀÌ sockaddr
-    if (bind(sock, (SOCKADDR_IN*)&addr, sizeof(addr)) != 0) {
-        printf("¹ÙÀÎµù Áß ¿¡·¯!!\n");
-        return -1;
-    }
-
-    //6. ¿¬°á´ë±â(listen) - listen()
-    // ¿¬°á ¿äÃ»ÇÑ Á¢¼ÓÀÚÀÇ Á¤º¸¸¦ ÀúÀå¼Ò¿¡ Â÷·Ê´ë·Î ÀúÀå.
-    // listen(sock, backlog)
-    // sock - ¿¬°á ´ë±â ¼­¹ö ¼ÒÄÏ
-    // backlog - ÀúÀå¼Ò¿¡ ÀúÀåÇÒ ¿¬°á Á¤º¸ ÃÖ´ë °¹¼ö. Á¦ÀÏ ¸ÕÀú ÀúÀåµÈ °ÍÀ» Á¦ÀÏ ¸ÕÀú »«´Ù.(Å¥)
-
-    printf("¹ÙÀÎµù ¼º°ø!!\n");
-    listen(sock, 5);
-    printf("¿¬°á ´ë±â\n");
-
-    // 7. ¿¬°á ¼ö¸³ - accept()
-    // accept(sock, caddr, caddrlen) : ºñ¾îÀÖ´Â caddr ³Ñ±â¸é accept() ÇÔ¼ö°¡ ¼º°øÀûÀ¸·Î ¼öÇàµÆÀ» ¶§ caddr ±¸Á¶Ã¼¿¡ ¿¬°á ¿äÃ»ÇÑ Å¬¶óÀÌ¾ğÆ®ÀÇ ÁÖ¼Ò Á¤º¸¸¦ ¼¼ÆÃ ÇØÁÜ. µ¥ÀÌÅÍ¸¦ º¸³¾ Å¬¶óÀÌ¾ğÆ® ÁÖ¼Ò¸¦ ¾Ë ¼ö ÀÖÀ½.
-    // sock - ¹ÙÀÎµùµÈ ¼­¹ö ¼ÒÄÏ
-    // caddr - Å¬¶óÀÌ¾ğÆ® ÁÖ¼Ò Á¤º¸¸¦ ´ãÀ» ±¸Á¶Ã¼
-    // caddrlen - caddrÀÇ Å©±â
-    // return : ¿¬°á ¿äÃ»ÇÑ Å¬¶óÀÌ¾ğÆ®ÀÇ ¼ÒÄÏ Á¤º¸
-
+void server1(SOCKET sock) {
     SOCKADDR_IN caddr;
     SOCKET csock;
     int csize = sizeof(caddr);
@@ -77,16 +45,141 @@ int main(void) {
     csock = accept(sock, (SOCKADDR_IN*)&caddr, &csize);
 
     if (csock == SOCKET_ERROR) {
-        printf("¿¬°á ¼ö¸³Áß ¿¡·¯ ¹ß»ı!!\n");
+        printf("ì—°ê²° ìˆ˜ë¦½ì¤‘ ì—ëŸ¬ ë°œìƒ!!\n");
     }
 
-    printf("¿¬°á ¼º°ø!!\n");
-    printf("¿¬°áµÈ ¼ÒÄÏ ¹øÈ£ : %d \n", csock);
+    socket_list[socket_count++] = csock;
 
-    // 8. µ¥ÀÌÅÍ ¼Û¼ö½Å - send() / recv()
-    char buff[1024];
-    send(csock, "welcome!!", 1023, 0);
-    recv(csock, buff, 1023, 0);
-    printf("%s\n", buff);
+    printf("ì—°ê²° ì„±ê³µ!!\n");
+    printf("ì—°ê²°ëœ ì†Œì¼“ ë²ˆí˜¸ : %d \n", csock);
+
+    pthread_t pthread[2];
+    int thr1;
+    int thr2;
+    int status;
+
+    Sleep(1000);
+
+    thr1 = pthread_create(&pthread[0], NULL, send_s, csock);
+    thr2 = pthread_create(&pthread[1], NULL, receive_s, csock);
+   
+    pthread_join(pthread[0], (void**)&status);
+    pthread_join(pthread[1], (void**)&status);
+}
+
+void server2(SOCKET sock) {
+    SOCKADDR_IN caddr;
+    SOCKET csock;
+    int csize = sizeof(caddr);
+
+    csock = accept(sock, (SOCKADDR_IN*)&caddr, &csize);
+
+    if (csock == SOCKET_ERROR) {
+        printf("ì—°ê²° ìˆ˜ë¦½ì¤‘ ì—ëŸ¬ ë°œìƒ!!\n");
+    }
+
+    socket_list[socket_count++] = csock;
+
+    printf("ì—°ê²° ì„±ê³µ!!\n");
+    printf("ì—°ê²°ëœ ì†Œì¼“ ë²ˆí˜¸ : %d \n", csock);
+
+    pthread_t pthread[2];
+    int thr1;
+    int thr2;
+    int status;
+
+    Sleep(1000);
+
+    thr1 = pthread_create(&pthread[0], NULL, send_s, csock);
+    thr2 = pthread_create(&pthread[1], NULL, receive_s, csock);
+
+    pthread_join(pthread[0], (void**)&status);
+    pthread_join(pthread[1], (void**)&status);
+}
+
+
+int main(void) {
+
+    WSADATA wsadata;
+
+    // ì´ˆê¸°í™” ì„±ê³µ 0, ì‹¤íŒ¨ -1
+    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0) {
+        printf("winsock ì´ˆê¸°í™” ì‹¤íŒ¨\n");
+        return -1;
+    }
+
+    printf("winsock ì´ˆê¸°í™” ì„±ê³µ!!\n");
+
+    // 3. ì†Œì¼“ ìƒì„±ê³¼ ë‹«ê¸°.
+    // socket(af, type, protocol) - ì†Œì¼“ì„ ìƒì„±í•´ì£¼ëŠ” í•¨ìˆ˜.
+    // af : ì£¼ì†Œì²´ê³„ (ipv4 - AF_INET, ipv6 - AF_INET6)
+    // type : ì†Œì¼“ì˜ ë°ì´í„° ì „ì†¡ íƒ€ì… (TCP / UDP) - SOCK_STREAM, SOCK_DGRAM
+    // protocol : í”„ë¡œí† ì½œ ì„ íƒ(ë³´í†µ 0ìœ¼ë¡œ í•´ì¤Œ)  
+    // closesocket(sock): í•´ë‹¹ ì†Œì¼“ì˜ ìì› ë°˜ë‚©
+
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == SOCKET_ERROR) {
+        printf("ì†Œì¼“ ìƒì„±ì‹œ ë¬¸ì œ ë°œìƒ!!\n");
+        return -1;
+    }
+
+    printf("ì†Œì¼“ ìƒì„± ì™„ë£Œ!!\n");
+
+
+    // 4. ì£¼ì†Œì™€ í¬íŠ¸ë²ˆí˜¸ ì„¤ì •
+    // sin_family : ì£¼ì†Œì²´ê³„
+    // sin_port : í¬íŠ¸ë²ˆí˜¸
+    // sin_addr : IP ì£¼ì†Œ (ADDR_ANY ë¡œì»¬ì˜ ì£¼ì†Œë¥¼ ìë™ ì„¸íŒ…)
+    // htons : ë¦¬í‹€ì¸ë””ì•ˆ > ë¹…ì¸ë””ì•ˆ
+
+
+    SOCKADDR_IN addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(9999); // 9000ë²ˆëŒ€ ì´í›„ë¡œëŠ” ë‹¤ ë¹„ì–´ìˆìŒ. 9000 ~ 63000
+    addr.sin_addr.S_un.S_addr = ADDR_ANY;
+
+    // 5. ë°”ì¸ë”©
+    // bind(sock, addr, addrlen)
+    // sock : ë°”ì¸ë”©í•  ëŒ€ìƒ ì†Œì¼“
+    // addr : ëŒ€ìƒ ì†Œì¼“ì— ì„¤ì •í•œ ì£¼ì†Œ êµ¬ì¡°ì²´(sockaddr) ì£¼ì†Œ
+    // addrlen : ì£¼ì†Œ êµ¬ì¡°ì²´ì˜ í¬ê¸°
+    // sockaddr* : sockaddr_in ip v4 íŠ¹í™”ëœ êµ¬ì¡°ì²´ì¸ë°, ì´ê±¸ ì¢€ë” ë²”ìš©ì„±ìˆê²Œ ë°”ê¾¼ê²ƒì´ sockaddr
+    if (bind(sock, (SOCKADDR_IN*)&addr, sizeof(addr)) != 0) {
+        printf("ë°”ì¸ë”© ì¤‘ ì—ëŸ¬!!\n");
+        return -1;
+    }
+
+    //6. ì—°ê²°ëŒ€ê¸°(listen) - listen()
+    // ì—°ê²° ìš”ì²­í•œ ì ‘ì†ìì˜ ì •ë³´ë¥¼ ì €ì¥ì†Œì— ì°¨ë¡€ëŒ€ë¡œ ì €ì¥.
+    // listen(sock, backlog)
+    // sock - ì—°ê²° ëŒ€ê¸° ì„œë²„ ì†Œì¼“
+    // backlog - ì €ì¥ì†Œì— ì €ì¥í•  ì—°ê²° ì •ë³´ ìµœëŒ€ ê°¯ìˆ˜. ì œì¼ ë¨¼ì € ì €ì¥ëœ ê²ƒì„ ì œì¼ ë¨¼ì € ëº€ë‹¤.(í)
+
+    printf("ë°”ì¸ë”© ì„±ê³µ!!\n");
+    listen(sock, 5);
+    printf("ì—°ê²° ëŒ€ê¸°\n");
+
+    // 7. ì—°ê²° ìˆ˜ë¦½ - accept()
+    // accept(sock, caddr, caddrlen) : ë¹„ì–´ìˆëŠ” caddr ë„˜ê¸°ë©´ accept() í•¨ìˆ˜ê°€ ì„±ê³µì ìœ¼ë¡œ ìˆ˜í–‰ëì„ ë•Œ caddr êµ¬ì¡°ì²´ì— ì—°ê²° ìš”ì²­í•œ í´ë¼ì´ì–¸íŠ¸ì˜ ì£¼ì†Œ ì •ë³´ë¥¼ ì„¸íŒ… í•´ì¤Œ. ë°ì´í„°ë¥¼ ë³´ë‚¼ í´ë¼ì´ì–¸íŠ¸ ì£¼ì†Œë¥¼ ì•Œ ìˆ˜ ìˆìŒ.
+    // sock - ë°”ì¸ë”©ëœ ì„œë²„ ì†Œì¼“
+    // caddr - í´ë¼ì´ì–¸íŠ¸ ì£¼ì†Œ ì •ë³´ë¥¼ ë‹´ì„ êµ¬ì¡°ì²´
+    // caddrlen - caddrì˜ í¬ê¸°
+    // return : ì—°ê²° ìš”ì²­í•œ í´ë¼ì´ì–¸íŠ¸ì˜ ì†Œì¼“ ì •ë³´
+
+   
+
+    // 8. ë°ì´í„° ì†¡ìˆ˜ì‹  - send() / recv()
+
+    pthread_t server_thread[2];
+    int server_thr1;
+    int server_thr2;
+    int server_status;
+
+    server_thr1 = pthread_create(&server_thread[0], NULL, server1, sock);
+    server_thr2 = pthread_create(&server_thread[1], NULL, server2, sock);
+
+    pthread_join(server_thread[0], (void**)&server_status);
+    pthread_join(server_thread[1], (void**)&server_status);    
+   
     return 0;
 }
